@@ -259,7 +259,6 @@ corrplot(cor_matrix,
          title = "Sample correlation"
          )
 
-#I don't understand what 7*100 means.
 ```
 
 
