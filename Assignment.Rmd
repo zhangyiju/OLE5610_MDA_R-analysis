@@ -282,45 +282,6 @@ plot(h_dend)
 ```
 
 
-###Summary statistics
-```{r}
-##calculate means
-
-#set up conditions
-
-conditions<-c("ctrl_bas","ctrl_ins","ctrl_thio","palm_bas","palm_ins","palm_thio")
-
-
-#make columns
-
-data_norm[, paste(conditions,"mean", sep = "_")]<-NA
-
-#Loop over conditions, and calculate mean for each condition
-
-for(condition in conditions){
-  temp_data<-data_norm[, grep(condition, colnames(data_norm)[9:37])+8]
-  means<-apply(temp_data, MARGIN = 1, FUN = "mean", na.rm=TRUE)
-  data_norm[, paste(condition,"mean", sep = "_")]<-means
-}
-
-
-
-##calculate FCs
-
-
-data_norm$ctrl_ins_Vs_ctrl_bas_log2FC<-  data_norm$ctrl_ins_mean - data_norm$ctrl_bas_mean
-
-data_norm$palm_ins_Vs_ctrl_ins_log2FC<-  data_norm$palm_ins_mean - data_norm$ctrl_ins_mean
-
-data_norm$palm_thio_Vs_palm_ins_log2FC<- data_norm$palm_thio_mean - data_norm$palm_ins_mean
-
-data_norm$palm_thio_Vs_ctrl_ins_log2FC<- data_norm$palm_thio_mean - data_norm$palm_ins_mean
-
-
-```
-
-
-
 ###Linear discriminant analysis (LDA)
 ```{r}
 install.packages("caret")
