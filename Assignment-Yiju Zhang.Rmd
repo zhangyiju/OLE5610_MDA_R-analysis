@@ -1,0 +1,205 @@
+### This is my assignment for my PhD course: OLET5610 Multivariate Data Analysis. The dataset was obtained from https://www.kaggle.com/datasets/fatihb/coffee-quality-data-cqi.
+
+### Read in data
+```{r}
+coffee_qual<-read.csv("data_raw/df_arabica_clean.csv")
+
+str(coffee_qual)
+
+library(dplyr)
+
+glimpse(coffee_qual)
+```
+
+### Calculate missing values
+```{r}
+length(which(is.na(coffee_qual)))
+
+library(naniar)
+
+gg_miss_var(coffee_qual)
+
+vis_miss(coffee_qual)
+
+# no missing values, perfect!
+```
+
+
+### Check for normality
+```{r}
+## subset the data to exclude non-numeric data.
+coffee_check<- select(coffee_qual, c(21:26, 30,32,33))
+
+glimpse(coffee_check)
+
+## use the mvn() function to test the data for normality
+
+library(MVN)
+
+mvn(coffee_check, mvnTest = "mardia")
+mvn(coffee_check, mvnTest = "mardia", univariatePlot= "qqplot")
+
+```
+
+### Principal component analysis (PCA)
+```{r}
+## Before performing a PCA, extract the covariates of interest and exclude non-numeric variables.
+
+num_coffee <- coffee_qual[, c(21:26, 30,32,33)] # extract only numeric variables
+
+## Explore the initial correlation between our numeric variables by plotting a bivariate matrix.
+pairs(num_coffee)
+
+library(psych)
+pairs.panels(num_coffee, pch = ".")
+
+## Calculate PCA scores
+library(factoextra)
+library(FactoMineR)
+
+pca_coffee <- PCA(num_coffee, graph = FALSE) # Perform the PCA using the function PCA()
+
+myvars <- get_pca_var(pca_coffee) # Extract the results
+
+myvars
+
+## Scree plot
+get_eig(pca_coffee) # Extract and visualise the eigenvalues/variances.
+
+fviz_screeplot(pca_coffee) # The outputs can suggest the contribution of each PC in explaining the data. 
+
+
+## Explore the results
+pairs.panels(pca_coffee$ind$coord, pch = ".")
+
+fviz_pca(pca_coffee)
+
+## Scatter plot of individuals
+fviz_pca_ind(pca_coffee) # View the scatterplot of individuals
+
+# group by harvest year:
+fviz_pca_ind(pca_coffee, 
+             geom = "point", 
+             col.ind = coffee_qual$Harvest.Year) +
+  labs(x = "PC1", y = "PC2")
+
+# group by Category.One.Defects:
+fviz_pca_ind(pca_coffee, 
+             geom = "point", 
+             col.ind = coffee_qual$Category.One.Defects) +
+  labs(x = "PC1", y = "PC2")
+
+
+## Plot of variables
+fviz_pca_var(pca_coffee, 
+             col.var = "contrib", # add colours based on contribution
+             repel = TRUE) + # ensure that text labels don't overlap
+  scale_colour_viridis_c() + # a good palette that is colourblind friendly
+  labs(x = "PC1", y = "PC2")
+
+myvars$contrib # view the contribution values 
+
+
+
+```
+
+
+
+### Linear discriminant analysis (LDA)
+```{r}
+library(MASS)
+library(caret)
+library(ggplot2)
+
+lda<-lda(Harvest.Year ~. , data=coffee_qual[,c(15,21:26, 30,32,33)])
+
+lda
+
+## Visualise the data 
+
+# Histograms
+# generate predictions
+lda_values <- predict(lda)
+
+# extract group and value from predictions and format as data frame
+LD1hist <- data.frame(cultivar = lda_values$class, value = lda_values$x[,1])
+
+# plot
+ggplot(LD1hist, aes(value)) +
+  facet_wrap(~ cultivar, ncol = 1) + # group data by `cultivar`
+  geom_histogram() + # generate histograme
+  theme_bw() # change default theme
+
+# extract group and value from predictions and format as data frame
+LD2hist <- data.frame(cultivar = lda_values$class, value = lda_values$x[,2])
+
+# plot
+ggplot(LD2hist, aes(value)) +
+  facet_wrap(~ cultivar, ncol = 1) + # group data by `cultivar`
+  geom_histogram() + # generate histograme
+  theme_bw() # change default theme
+
+## Loadings plot of discriminant functions
+# use predictions as before in lda_values
+# create data frame for plotting
+ldascatter <- data.frame(cultivar = lda_values$class, lda = lda_values$x)
+
+# plot:
+ggplot(ldascatter, aes(lda.LD1, lda.LD2, colour = cultivar, shape = cultivar)) +
+  geom_point(size = 3, alpha = 0.8) +
+  xlab("LD1") +
+  ylab("LD2") +
+  theme_bw()
+```
+
+
+
+### Permutational analysis of variance (PERMANOVA)
+```{r}
+library(vegan)
+
+## Transform：minimise the influence of most abundant groups.
+coffee_m <- sqrt(num_coffee)
+
+coffee_dist <- vegdist(coffee_m, method = "bray") # calculate a pairwise compositional dissimilarity matrix between management sites, based on species abundances
+
+coffee_dist
+
+library(factoextra)
+fviz_dist(coffee_dist)
+
+
+## Test assumpltions
+dispersion <- betadisper(coffee_dist, group = coffee_qual$Harvest.Year)
+
+boxplot(dispersion)
+
+
+## PERMANOVA analysis
+set.seed(223)
+adonis2(num_coffee ~ Harvest.Year, data = coffee_qual[,c(15,21:26, 30,32,33)] , permutations = 9999)
+
+## Conclusion and post-hoc
+
+nmds <- metaMDS(coffee_m, 
+                distance = "bray",
+                trace = FALSE)
+
+
+ordiplot(nmds, type = "n") # generate a canvas based on the `nmds` result
+# add all individuals as points 
+points(nmds,
+       display = "sites", 
+       cex = .6, # change the scale of the points
+       pch = 16, # define shape of points
+       col = factor(coffee_qual$Harvest.Year)) 
+# then, generate ellipses for grouping
+ordiellipse(nmds, 
+            groups = coffee_qual$Harvest.Year,
+            draw = "polygon",
+            conf = 0.95, 
+            label = TRUE,
+            alpha = 0.2)
+```
+
+
